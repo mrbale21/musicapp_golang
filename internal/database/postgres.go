@@ -18,9 +18,14 @@ func ConnectDB() error {
 
 	// Supabase mewajibkan sslmode=require
 	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=require",
-		cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName,
-	)
+    "host=%s port=%s user=%s password=%s dbname=%s sslmode=require",
+    cfg.DBHost,
+    cfg.DBPort,
+    cfg.DBUser,
+    cfg.DBPassword,
+    cfg.DBName,
+)
+
 
 	var err error
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
