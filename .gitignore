@@ -1,0 +1,33 @@
+# Go build outputs
+/bin/
+/build/
+/*.exe
+/*.exe~
+/*.dll
+/*.so
+/*.dylib
+
+# Output of go test
+*.out
+
+# Go modules
+/vendor/
+
+# Environment variables
+.env
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Optional: temporary files
+*.tmp
+*.swp
