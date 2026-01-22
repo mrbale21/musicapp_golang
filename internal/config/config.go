@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -59,9 +58,9 @@ func LoadConfig() error {
     }
     
     if GlobalConfig.SpotifyClientID == "" || GlobalConfig.SpotifyClientSecret == "" {
-        return fmt.Errorf("Spotify API credentials are required")
-    }
-    
+    log.Println("⚠️ Spotify API credentials not set, Spotify features disabled")
+}
+
     return nil
 }
 
