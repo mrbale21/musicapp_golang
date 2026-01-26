@@ -38,7 +38,7 @@ func SetupRoutes(
 	// 2. Global middleware lainnya
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
-	router.Use(middleware.OptionalJWTMiddleware())
+	// router.Use(middleware.OptionalJWTMiddleware())
 
 	// API routes
 	api := router.Group("/api")

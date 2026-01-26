@@ -3,7 +3,9 @@ package repository
 import (
 	"back_music/internal/database"
 	"back_music/internal/models"
+	"context"
 	"errors"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -31,23 +33,43 @@ func (r *userRepo) CreateUser(user *models.User) error {
 
 func (r *userRepo) FindUserByEmail(email string) (*models.User, error) {
 	var user models.User
-	err := r.db.Where("email = ?", email).First(&user).Error
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := r.db.WithContext(ctx).
+		Where("email = ?", email).
+		First(&user).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil // User tidak ditemukan, bukan error
+			return nil, nil
 		}
-		return nil, err // Error database lainnya
+		return nil, err
 	}
 
 	return &user, nil
 }
 
+
 func (r *userRepo) FindUserByID(id uint) (*models.User, error) {
 	var user models.User
-	err := r.db.Preload("Likes").Preload("Plays").First(&user, id).Error
-	return &user, err
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := r.db.WithContext(ctx).
+		Preload("Likes").
+		Preload("Plays").
+		First(&user, id).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }
+
 
 func (r *userRepo) HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)

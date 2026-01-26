@@ -36,6 +36,15 @@ func main() {
 		log.Println("⚠️ App will continue running without database")
 	}
 
+	go func() {
+	sqlDB, _ := database.DB.DB()
+	for {
+		sqlDB.Ping()
+		time.Sleep(5 * time.Minute)
+	}
+}()
+
+
 	// =========================
 	// INIT REPOSITORIES
 	// =========================

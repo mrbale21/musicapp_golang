@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -123,14 +124,21 @@ func (h *AuthHandler) Login(c *gin.Context) {
         return
     }
     
-    // Verify password
+   // Verify password (DEBUG TIMING)
+    start := time.Now()
+
     if err := h.userRepo.VerifyPassword(user.Password, req.Password); err != nil {
+        log.Println("bcrypt time (failed):", time.Since(start))
+
         c.JSON(http.StatusUnauthorized, gin.H{
             "status":  "error",
             "message": "Invalid credentials",
         })
         return
     }
+
+    log.Println("bcrypt time (success):", time.Since(start))
+
     
     // Generate JWT token
     token, err := h.generateJWT(user.ID)

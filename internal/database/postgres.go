@@ -5,6 +5,7 @@ import (
 	"back_music/internal/models"
 	"fmt"
 	"log"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -29,13 +30,24 @@ func ConnectDB() error {
 
 	var err error
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
-	}
+	Logger: logger.Default.LogMode(logger.Warn), // ⬅️ JANGAN Info di prod
+})
+if err != nil {
+	return fmt.Errorf("failed to connect to database: %w", err)
+}
 
-	log.Println("✅ Database connected successfully (Supabase PostgreSQL)")
+sqlDB, err := DB.DB()
+if err != nil {
+	return err
+}
+
+// 🔥 WAJIB SET POOL
+sqlDB.SetMaxOpenConns(10)
+sqlDB.SetMaxIdleConns(5)
+sqlDB.SetConnMaxLifetime(30 * time.Minute)
+
+log.Println("✅ Database connected successfully (Supabase PostgreSQL)")
+
 	return nil
 }
 
