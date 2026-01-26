@@ -34,7 +34,7 @@ func main() {
 	if err := database.ConnectDB(); err != nil {
 		log.Println("❌ Database connection failed:", err)
 		log.Println("❌ App WILL NOT start without database")
-		os.Exit(1) // ⬅️ WAJIB: jangan lanjut kalau DB mati
+		// os.Exit(1) 
 	}
 
 	// =========================
