@@ -113,34 +113,28 @@ func (h *AuthHandler) Login(c *gin.Context) {
         })
         return
     }
-    
-    // Find user
+
     user, err := h.userRepo.FindUserByEmail(req.Email)
-    if err != nil {
+    if err != nil || user == nil {
         c.JSON(http.StatusUnauthorized, gin.H{
             "status":  "error",
             "message": "Invalid credentials",
         })
         return
     }
-    
-   // Verify password (DEBUG TIMING)
-    start := time.Now()
 
+    // Verify password (DEBUG TIMING)
+    start := time.Now()
     if err := h.userRepo.VerifyPassword(user.Password, req.Password); err != nil {
         log.Println("bcrypt time (failed):", time.Since(start))
-
         c.JSON(http.StatusUnauthorized, gin.H{
             "status":  "error",
             "message": "Invalid credentials",
         })
         return
     }
-
     log.Println("bcrypt time (success):", time.Since(start))
 
-    
-    // Generate JWT token
     token, err := h.generateJWT(user.ID)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
@@ -149,9 +143,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
         })
         return
     }
-    
-    user.Password = "" // Don't send password back
-    
+
+    user.Password = ""
+
     c.JSON(http.StatusOK, gin.H{
         "status":  "success",
         "message": "Login successful",
@@ -161,6 +155,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
         },
     })
 }
+
 
 func (h *AuthHandler) Me(c *gin.Context) {
     // Get user ID from JWT middleware
