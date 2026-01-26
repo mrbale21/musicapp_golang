@@ -17,17 +17,18 @@ var DB *gorm.DB
 func ConnectDB() error {
 	cfg := config.GlobalConfig
 
+	// Tambahkan log ini untuk debug di Railway Logs
+	log.Printf("Attempting DB Connect: Host=%s, User=%s, DB=%s, Port=%s, SSLMode=%s", 
+		cfg.DBHost, cfg.DBUser, cfg.DBName, cfg.DBPort, cfg.DBSSLMode)
+
 	if cfg.DBHost == "" || cfg.DBUser == "" || cfg.DBName == "" {
-		return fmt.Errorf("database config incomplete")
+		// Berikan info variabel mana yang hilang
+		return fmt.Errorf("database config incomplete: please check environment variables")
 	}
 
 	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=require",
-		cfg.DBHost,
-		cfg.DBPort,
-		cfg.DBUser,
-		cfg.DBPassword,
-		cfg.DBName,
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s connect_timeout=10 statement_timeout=30000",
+		cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode,
 	)
 
 	var err error
@@ -43,10 +44,11 @@ func ConnectDB() error {
 		return err
 	}
 
-	// Pool config (Railway/Supabase safe)
-	sqlDB.SetMaxOpenConns(10)
-	sqlDB.SetMaxIdleConns(5)
-	sqlDB.SetConnMaxLifetime(30 * time.Minute)
+	// Pool config optimized for Railway/Supabase
+	sqlDB.SetMaxOpenConns(25)
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetConnMaxLifetime(5 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(2 * time.Minute)
 
 	// 🔥 TEST REAL CONNECTION
 	if err := sqlDB.Ping(); err != nil {

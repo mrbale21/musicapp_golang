@@ -18,6 +18,7 @@ type Config struct {
     DBUser     string
     DBPassword string
     DBName     string
+    DBSSLMode  string
     
     ServerPort string
     JWTSecret  string
@@ -48,6 +49,7 @@ func LoadConfig() error {
         DBUser:     getEnv("DB_USER", "postgres"),
         DBPassword: getEnv("DB_PASSWORD", ""),
         DBName:     getEnv("DB_NAME", "music_app"),
+        DBSSLMode:  getEnv("DB_SSLMODE", "require"),
         
         ServerPort: getEnv("SERVER_PORT", "8080"),
         JWTSecret:  getEnv("JWT_SECRET", "default-jwt-secret-change-in-production"),

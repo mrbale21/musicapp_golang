@@ -34,7 +34,7 @@ func main() {
 	if err := database.ConnectDB(); err != nil {
 		log.Println("❌ Database connection failed:", err)
 		log.Println("❌ App WILL NOT start without database")
-		// os.Exit(1) 
+		os.Exit(1) 
 	}
 
 	// =========================
@@ -123,9 +123,9 @@ func main() {
 	server := &http.Server{
 		Addr:         addr,
 		Handler:      router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 60 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	// =========================
