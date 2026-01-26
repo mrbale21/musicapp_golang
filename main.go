@@ -21,7 +21,7 @@ import (
 func main() {
 
 	// =========================
-	// LOAD CONFIG (SAFE)
+	// LOAD CONFIG
 	// =========================
 	if err := config.LoadConfig(); err != nil {
 		log.Println("⚠️ Config load warning:", err)
@@ -29,21 +29,31 @@ func main() {
 	}
 
 	// =========================
-	// CONNECT DATABASE (SAFE)
+	// CONNECT DATABASE
 	// =========================
 	if err := database.ConnectDB(); err != nil {
-		log.Println("⚠️ Database connection failed:", err)
-		log.Println("⚠️ App will continue running without database")
+		log.Println("❌ Database connection failed:", err)
+		log.Println("❌ App WILL NOT start without database")
+		os.Exit(1) // ⬅️ WAJIB: jangan lanjut kalau DB mati
 	}
 
+	// =========================
+	// DB KEEP ALIVE (SAFE)
+	// =========================
 	go func() {
-	sqlDB, _ := database.DB.DB()
-	for {
-		sqlDB.Ping()
-		time.Sleep(5 * time.Minute)
-	}
-}()
+		sqlDB, err := database.DB.DB()
+		if err != nil {
+			log.Println("⚠️ Cannot access sql.DB:", err)
+			return
+		}
 
+		for {
+			if err := sqlDB.Ping(); err != nil {
+				log.Println("⚠️ Database ping failed:", err)
+			}
+			time.Sleep(5 * time.Minute)
+		}
+	}()
 
 	// =========================
 	// INIT REPOSITORIES
@@ -54,11 +64,8 @@ func main() {
 	// =========================
 	// INIT SERVICES
 	// =========================
-
-	// Spotify (optional)
 	spotifyService := services.NewSpotifyService(songRepo)
 
-	// Recommendation services
 	contentService := services.NewContentBasedService(songRepo)
 	collaborativeService := services.NewCollaborativeService(userRepo, songRepo)
 	hybridService := services.NewHybridService(contentService, collaborativeService)
@@ -68,9 +75,7 @@ func main() {
 		collaborativeService,
 		hybridService,
 	)
-	log.Println("✅ Smart Hybrid service initialized")
 
-	// Youtube service
 	youtubeSvc := services.NewYouTubeService()
 
 	// =========================
@@ -105,23 +110,17 @@ func main() {
 	)
 
 	// =========================
-	// PORT (RAILWAY SAFE)
+	// PORT (RAILWAY)
 	// =========================
 	port := os.Getenv("PORT")
-	if port == "" {
-		port = config.GlobalConfig.ServerPort
-	}
 	if port == "" {
 		port = "8080"
 	}
 
-	bindAddr := "0.0.0.0:" + port
+	addr := "0.0.0.0:" + port
 
-	// =========================
-	// SERVER CONFIG
-	// =========================
 	server := &http.Server{
-		Addr:         bindAddr,
+		Addr:         addr,
 		Handler:      router,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -129,36 +128,35 @@ func main() {
 	}
 
 	// =========================
-	// START SERVER
+	// START SERVER (BLOCKING)
 	// =========================
-	go func() {
-		log.Println("🎵 =======================================")
-		log.Println("🎵   BACK MUSIC API SERVER")
-		log.Println("🎵 =======================================")
-		log.Printf("🎵   Running on: %s", bindAddr)
-		log.Println("🎵   Environment: Production (Railway)")
-		log.Println("🎵 =======================================")
-		log.Println("🚀 Server started")
+	log.Println("🎵 =======================================")
+	log.Println("🎵   BACK MUSIC API SERVER")
+	log.Println("🎵 =======================================")
+	log.Printf("🎵   Running on: %s", addr)
+	log.Println("🎵   Environment: Production (Railway)")
+	log.Println("🎵 =======================================")
+	log.Println("🚀 Server started")
 
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Println("❌ Server error:", err)
+	// Graceful shutdown listener
+	go func() {
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		<-quit
+
+		log.Println("🛑 Shutting down server...")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(ctx); err != nil {
+			log.Println("❌ Forced shutdown:", err)
 		}
 	}()
 
-	// =========================
-	// GRACEFUL SHUTDOWN
-	// =========================
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	log.Println("🛑 Shutting down server...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(ctx); err != nil {
-		log.Println("❌ Forced shutdown:", err)
+	// ⛔ BLOCK DI SINI (PENTING)
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatal("❌ Server crashed:", err)
 	}
 
 	log.Println("✅ Server exited properly")
