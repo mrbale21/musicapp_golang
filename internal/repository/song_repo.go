@@ -149,7 +149,7 @@ func (r *songRepo) GetPopularSongs(limit int) ([]models.Song, error) {
 
 
 func (r *songRepo) UpdateSong(song *models.Song) error {
-    log.Printf("[UpdateSong] Updating song: %s - %s (URL: %s)", 
+    log.Printf("[UpdateSong] Updating song: %s - %s", 
         song.Title, song.Artist,)
     
     return r.db.Save(song).Error
