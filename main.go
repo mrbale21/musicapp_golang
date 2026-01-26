@@ -114,10 +114,14 @@ func main() {
 	// =========================
 	port := os.Getenv("PORT")
 	if port == "" {
+		port = os.Getenv("SERVER_PORT")
+	}
+	if port == "" {
 		port = "8080"
 	}
 
 	addr := "0.0.0.0:" + port
+
 
 	server := &http.Server{
 		Addr:         addr,
