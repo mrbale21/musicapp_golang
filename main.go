@@ -114,9 +114,6 @@ func main() {
 	// =========================
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = os.Getenv("SERVER_PORT")
-	}
-	if port == "" {
 		port = "8080"
 	}
 
