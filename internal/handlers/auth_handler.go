@@ -174,8 +174,12 @@ func (h *AuthHandler) Me(c *gin.Context) {
         uid = uint(v)
     case int:
         uid = uint(v)
+    case int64:
+        uid = uint(v)
     case uint:
         uid = v
+    case uint64:
+        uid = uint(v)
     default:
         c.JSON(http.StatusUnauthorized, gin.H{
             "status":  "error",
@@ -193,9 +197,18 @@ func (h *AuthHandler) Me(c *gin.Context) {
             })
             return
         }
+        log.Printf("[Me] FindUserByID error: %v", err)
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "Failed to fetch user data",
+        })
+        return
+    }
+
+    if user == nil {
+        c.JSON(http.StatusUnauthorized, gin.H{
+            "status":  "error",
+            "message": "User not found",
         })
         return
     }
