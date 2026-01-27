@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"gorm.io/gorm"
 
 	"back_music/internal/config"
 	"back_music/internal/models"
@@ -158,8 +157,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 
 func (h *AuthHandler) Me(c *gin.Context) {
-    // Get user ID from JWT middleware
-    userID, exists := c.Get("user_id")
+    userIDRaw, exists := c.Get("user_id")
     if !exists {
         c.JSON(http.StatusUnauthorized, gin.H{
             "status":  "error",
@@ -168,49 +166,48 @@ func (h *AuthHandler) Me(c *gin.Context) {
         return
     }
 
-    // Convert to uint
-    uid, ok := userID.(uint)
-    if !ok {
+    var uid uint
+
+    switch v := userIDRaw.(type) {
+    case float64:
+        uid = uint(v)
+    case int:
+        uid = uint(v)
+    case uint:
+        uid = v
+    default:
         c.JSON(http.StatusUnauthorized, gin.H{
             "status":  "error",
-            "message": "Invalid user ID format",
+            "message": "Invalid user ID type",
         })
         return
     }
 
-    // Get user from database
     user, err := h.userRepo.FindUserByID(uid)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "Failed to fetch user data",
-            "error":   err.Error(),
         })
         return
     }
 
     if user == nil {
-        c.JSON(http.StatusNotFound, gin.H{
+        c.JSON(http.StatusUnauthorized, gin.H{
             "status":  "error",
             "message": "User not found",
         })
         return
     }
 
-    // Clear sensitive data
     user.Password = ""
-    
-    // Optionally clear other sensitive fields if needed
-    if user.DeletedAt.Valid {
-        user.DeletedAt = gorm.DeletedAt{} // Hide soft delete info
-    }
 
     c.JSON(http.StatusOK, gin.H{
-        "status":  "success",
-        "message": "User data retrieved successfully",
-        "data":    user,
+        "status": "success",
+        "data":   user,
     })
 }
+
 
 func (h *AuthHandler) generateJWT(userID uint) (string, error) {
     token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
