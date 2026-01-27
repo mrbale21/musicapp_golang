@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"back_music/internal/database"
 	"back_music/internal/models"
@@ -118,6 +119,15 @@ func (h *SongHandler) SearchSongs(c *gin.Context) {
 
 func (h *SongHandler) GetSongByID(c *gin.Context) {
     songID := c.Param("id")
+    
+    // Validate UUID format to prevent invalid UUID errors in DB
+    if _, err := uuid.Parse(songID); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "status":  "error",
+            "message": "Invalid song ID format",
+        })
+        return
+    }
     userID := c.GetUint("user_id")
     
     song, err := h.songRepo.GetSongByID(songID)
@@ -172,6 +182,15 @@ func (h *SongHandler) LikeSong(c *gin.Context) {
     userID := c.GetUint("user_id")
     songID := c.Param("song_id")
     
+    // Validate UUID format before using in queries
+    if _, err := uuid.Parse(songID); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "status":  "error",
+            "message": "Invalid song ID format",
+        })
+        return
+    }
+    
     // Check if song exists
     _, err := h.songRepo.GetSongByID(songID)
     if err != nil {
@@ -218,6 +237,15 @@ func (h *SongHandler) UnlikeSong(c *gin.Context) {
     userID := c.GetUint("user_id")
     songID := c.Param("song_id")
     
+    // Validate UUID format before using in queries
+    if _, err := uuid.Parse(songID); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "status":  "error",
+            "message": "Invalid song ID format",
+        })
+        return
+    }
+    
     result := database.DB.Where("user_id = ? AND song_id = ?", userID, songID).Delete(&models.UserLike{})
     if result.Error != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
@@ -244,6 +272,15 @@ func (h *SongHandler) UnlikeSong(c *gin.Context) {
 func (h *SongHandler) PlaySong(c *gin.Context) {
     userID := c.GetUint("user_id")
     songID := c.Param("song_id")
+    
+    // Validate UUID format before using in queries
+    if _, err := uuid.Parse(songID); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "status":  "error",
+            "message": "Invalid song ID format",
+        })
+        return
+    }
     
     // Check if song exists
     _, err := h.songRepo.GetSongByID(songID)
@@ -507,6 +544,15 @@ func getFieldNames(files map[string][]*multipart.FileHeader) []string {
 
 func (h *SongHandler) GetAudioSource(c *gin.Context) {
     songID := c.Param("id")
+
+    // Validate UUID format before fetching from repository
+    if _, err := uuid.Parse(songID); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "status":  "error",
+            "message": "Invalid song ID format",
+        })
+        return
+    }
 
     // 1. Ambil data lagu dari repo
     song, err := h.songRepo.GetSongByID(songID)

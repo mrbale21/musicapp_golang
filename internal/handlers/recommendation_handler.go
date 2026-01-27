@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"back_music/internal/models"
@@ -83,6 +84,15 @@ func (h *RecommendationHandler) setLikeStatusForRecommendations(recommendations 
 
 func (h *RecommendationHandler) GetContentBasedRecommendations(c *gin.Context) {
     songID := c.Param("song_id")
+    
+    // Validate UUID format to prevent invalid UUID errors in the database
+    if _, err := uuid.Parse(songID); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "status":  "error",
+            "message": "Invalid song ID format",
+        })
+        return
+    }
     limitStr := c.DefaultQuery("limit", "10")
     userID := c.GetUint("user_id")
     
@@ -103,7 +113,7 @@ func (h *RecommendationHandler) GetContentBasedRecommendations(c *gin.Context) {
             "message": "Failed to generate recommendations",
             "error":   err.Error(),
         })
-        return
+        return  
     }
     
     // ⭐⭐ PERBAIKAN: Set like status untuk recommendations
@@ -201,6 +211,15 @@ func (h *RecommendationHandler) GetHybridRecommendations(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{
             "status":  "error",
             "message": "Song ID is required for hybrid recommendations",
+        })
+        return
+    }
+
+    // Validate UUID format to avoid invalid UUID errors in DB
+    if _, err := uuid.Parse(songID); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "status":  "error",
+            "message": "Invalid song ID format",
         })
         return
     }
