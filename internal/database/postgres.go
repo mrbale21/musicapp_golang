@@ -5,6 +5,7 @@ import (
 	"back_music/internal/models"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -58,9 +59,11 @@ func ConnectDB() error {
 	log.Println("✅ Database connected successfully (Supabase PostgreSQL)")
 
 	// OPTIONAL tapi recommended
+	if os.Getenv("ENV") != "production" {
 	if err := AutoMigrate(); err != nil {
 		return err
 	}
+}
 
 	return nil
 }
