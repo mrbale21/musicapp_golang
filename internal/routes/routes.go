@@ -1,10 +1,12 @@
 package routes
 
 import (
+	"os"
+	"time"
+
 	"back_music/internal/handlers"
 	"back_music/internal/middleware"
 	"back_music/internal/repository"
-	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -14,49 +16,64 @@ func SetupRoutes(
 	authHandler *handlers.AuthHandler,
 	songHandler *handlers.SongHandler,
 	recommendationHandler *handlers.RecommendationHandler,
-	userRepo repository.UserRepository, 
+	userRepo repository.UserRepository,
 ) *gin.Engine {
-	router := gin.Default()
 
-	// 1. CORS MIDDLEWARE
-	router.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"http://localhost:5173", 
-			"http://127.0.0.1:5173", 
-			"http://192.168.1.7:5173",
-			"http://localhost:3000",
-			"http://127.0.0.1:3000",
-			 "https://musicapp-frontend.vercel.app", 
-		},
+	router := gin.New()
+
+	// =========================
+	// GLOBAL MIDDLEWARE
+	// =========================
+	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
+
+	// =========================
+	// CORS CONFIG (DEV / PROD)
+	// =========================
+	env := os.Getenv("ENV") // development | production
+	frontendURL := os.Getenv("CORS_ORIGIN") // https://musicapp-frontend.vercel.app
+
+	corsConfig := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
-	}))
+	}
 
-	// 2. Global middleware lainnya
-	router.Use(gin.Logger())
-	router.Use(gin.Recovery())
-	// router.Use(middleware.OptionalJWTMiddleware())
+	if env == "production" {
+		// 🔒 PROD MODE (AMAN)
+		corsConfig.AllowOrigins = []string{
+			frontendURL,
+		}
+	} else {
+		// 🔓 DEV MODE (ANTI CORS)
+		corsConfig.AllowOriginFunc = func(origin string) bool {
+			return true
+		}
+	}
 
-	// API routes
+	router.Use(cors.New(corsConfig))
+
+	// =========================
+	// API ROUTES
+	// =========================
 	api := router.Group("/api")
 	{
-		// Auth routes
+		// ---------- AUTH ----------
 		auth := api.Group("/auth")
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
 
-			protectedAuth := auth.Group("/")
-			protectedAuth.Use(middleware.JWTMiddleware())
+			authProtected := auth.Group("/")
+			authProtected.Use(middleware.JWTMiddleware())
 			{
-				protectedAuth.GET("/me", authHandler.Me)
+				authProtected.GET("/me", authHandler.Me)
 			}
 		}
 
-		// PUBLIC SONG ROUTES
+		// ---------- PUBLIC SONGS ----------
 		songs := api.Group("/songs")
 		{
 			songs.GET("", songHandler.GetAllSongs)
@@ -68,11 +85,11 @@ func SetupRoutes(
 			songs.GET("/:id/source", songHandler.GetAudioSource)
 		}
 
-		// PROTECTED ROUTES
+		// ---------- PROTECTED ----------
 		protected := api.Group("/")
 		protected.Use(middleware.JWTMiddleware())
 		{
-			// User actions
+			// USER
 			user := protected.Group("/user")
 			{
 				user.POST("/like/:song_id", songHandler.LikeSong)
@@ -82,7 +99,7 @@ func SetupRoutes(
 				user.GET("/plays", songHandler.GetUserPlays)
 			}
 
-			// Recommendations
+			// RECOMMENDATIONS
 			recommendations := protected.Group("/recommendations")
 			{
 				recommendations.GET("/content/:song_id", recommendationHandler.GetContentBasedRecommendations)
@@ -92,42 +109,30 @@ func SetupRoutes(
 				recommendations.GET("/popular", recommendationHandler.GetPopularSongs)
 			}
 
-			// ⭐⭐ PERBAIKAN: Admin routes dengan parameter yang benar
+			// ADMIN (OPTIONAL)
 			// admin := protected.Group("/admin")
-			// admin.Use(middleware.AdminMiddleware(userRepo)) // ⭐⭐ TAMBAH PARAMETER userRepo
+			// admin.Use(middleware.AdminMiddleware(userRepo))
 			// {
 			// 	admin.POST("/songs/:song_id/upload", songHandler.UploadCustomMP3)
-			// 	admin.GET("/uploads/stats", func(c *gin.Context) {
-			// 		c.JSON(200, gin.H{
-			// 			"status": "success",
-			// 			"data": gin.H{
-			// 				"message": "Admin upload stats endpoint",
-			// 				"admin_id": c.GetUint("admin_id"),
-			// 			},
-			// 		})
-			// 	})
 			// }
 		}
 	}
 
-	// Health check
+	// =========================
+	// HEALTH & ROOT
+	// =========================
 	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "success", "message": "Server is running"})
-	})
-
-	// Root endpoint info
-	router.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status": "success",
+			"message": "Server is running",
+		})
+	})
+
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":  "success",
 			"message": "Back Music API",
 			"version": "1.0.0",
-			"endpoints": gin.H{
-				"auth": "/api/auth",
-				"songs": "/api/songs",
-				"recommendations": "/api/recommendations (protected)",
-				"admin": "/api/admin (admin only)",
-				"health": "/health",
-			},
 		})
 	})
 
