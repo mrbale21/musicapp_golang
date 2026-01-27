@@ -73,15 +73,16 @@ func SetupRoutes(
 			}
 		}
 
-		// ---------- PUBLIC SONGS ----------
+		// ---------- PUBLIC SONGS (optional JWT for like status when logged in) ----------
 		songs := api.Group("/songs")
+		songs.Use(middleware.OptionalJWTMiddleware())
 		{
 			songs.GET("", songHandler.GetAllSongs)
 			songs.GET("/search", songHandler.SearchSongs)
-			songs.GET("/:id", songHandler.GetSongByID)
-			songs.GET("/:id/audio", songHandler.GetAudioSource)
 			songs.GET("/popular-id", songHandler.GetPopularIndonesianSongs)
 			songs.POST("/seed", songHandler.SeedSongs)
+			songs.GET("/:id", songHandler.GetSongByID)
+			songs.GET("/:id/audio", songHandler.GetAudioSource)
 			songs.GET("/:id/source", songHandler.GetAudioSource)
 		}
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -185,17 +186,16 @@ func (h *AuthHandler) Me(c *gin.Context) {
 
     user, err := h.userRepo.FindUserByID(uid)
     if err != nil {
+        if errors.Is(err, repository.ErrUserNotFound) {
+            c.JSON(http.StatusUnauthorized, gin.H{
+                "status":  "error",
+                "message": "User not found",
+            })
+            return
+        }
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "Failed to fetch user data",
-        })
-        return
-    }
-
-    if user == nil {
-        c.JSON(http.StatusUnauthorized, gin.H{
-            "status":  "error",
-            "message": "User not found",
         })
         return
     }

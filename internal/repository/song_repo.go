@@ -1,12 +1,15 @@
 package repository
 
 import (
-	"back_music/internal/database"
-	"back_music/internal/models"
+	"errors"
 	"log"
 
+	"back_music/internal/database"
+	"back_music/internal/models"
 	"gorm.io/gorm"
 )
+
+var ErrSongNotFound = errors.New("song not found")
 
 // repository/songRepo.go - PERBAIKAN:
 
@@ -38,51 +41,40 @@ func NewSongRepository() SongRepository {
 
 func (r *songRepo) GetAllSongs() ([]models.Song, error) {
     var songs []models.Song
-    
-    // PERBAIKAN: JANGAN gunakan Limit() dan gunakan Unscoped() untuk pastikan semua data
-    err := r.db.Unscoped().Order("created_at DESC").Find(&songs).Error
-    
-    // DEBUG LOG
-    log.Printf("[Repository GetAllSongs] Executed query: SELECT * FROM songs ORDER BY created_at DESC")
-    log.Printf("[Repository GetAllSongs] Total songs fetched: %d", len(songs))
-    
- 
-    
-    return songs, err
-}
-
-func (r *songRepo) GetAllSongsWithLikeStatus(userID uint) ([]models.Song, error) {
-    var songs []models.Song
-    
-    // PERBAIKAN: JANGAN gunakan Limit() di sini juga
     err := r.db.Unscoped().Order("created_at DESC").Find(&songs).Error
     if err != nil {
         return nil, err
     }
-    
+    if songs == nil {
+        songs = []models.Song{}
+    }
+    log.Printf("[Repository GetAllSongs] Total songs fetched: %d", len(songs))
+    return songs, nil
+}
+
+func (r *songRepo) GetAllSongsWithLikeStatus(userID uint) ([]models.Song, error) {
+    var songs []models.Song
+    err := r.db.Unscoped().Order("created_at DESC").Find(&songs).Error
+    if err != nil {
+        return nil, err
+    }
+    if songs == nil {
+        songs = []models.Song{}
+    }
     log.Printf("[GetAllSongsWithLikeStatus] Fetched %d songs", len(songs))
-    
-    // Get user's liked songs IDs
+
     var likedSongIDs []string
-    err = r.db.Model(&models.UserLike{}).
+    _ = r.db.Model(&models.UserLike{}).
         Where("user_id = ?", userID).
         Pluck("song_id", &likedSongIDs).Error
-    
-    if err != nil {
-        return songs, nil // Return songs without like status if error
-    }
-    
-    // Create map for faster lookup
+
     likedMap := make(map[string]bool)
     for _, id := range likedSongIDs {
         likedMap[id] = true
     }
-    
-    // Set IsLiked field
     for i := range songs {
         songs[i].IsLiked = likedMap[songs[i].ID]
     }
-    
     return songs, nil
 }
 
@@ -95,14 +87,14 @@ func (r *songRepo) CreateSong(song *models.Song) error {
 func (r *songRepo) GetSongByID(id string) (*models.Song, error) {
     var song models.Song
     err := r.db.First(&song, "id = ?", id).Error
-    
-    // Debug log
-    if err == nil {
-        log.Printf("[GetSongByID] Found song: %s - %s )", 
-            song.Title, song.Artist)
+    if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            return nil, ErrSongNotFound
+        }
+        return nil, err
     }
-    
-    return &song, err
+    log.Printf("[GetSongByID] Found song: %s - %s", song.Title, song.Artist)
+    return &song, nil
 }
 
 func (r *songRepo) GetSongBySpotifyID(spotifyID string) (*models.Song, error) {
@@ -143,15 +135,19 @@ func (r *songRepo) GetSongsByGenre(genre string, limit int) ([]models.Song, erro
 func (r *songRepo) GetPopularSongs(limit int) ([]models.Song, error) {
     var songs []models.Song
     err := r.db.Order("popularity DESC").Limit(limit).Find(&songs).Error
-    return songs, err
+    if err != nil {
+        return nil, err
+    }
+    if songs == nil {
+        songs = []models.Song{}
+    }
+    return songs, nil
 }
 
 
 
 func (r *songRepo) UpdateSong(song *models.Song) error {
-    log.Printf("[UpdateSong] Updating song: %s - %s", 
-        song.Title, song.Artist,)
-    
+    log.Printf("[UpdateSong] Updating song: %s - %s", song.Title, song.Artist)
     return r.db.Save(song).Error
 }
 

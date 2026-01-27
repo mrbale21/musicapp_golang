@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -105,15 +106,20 @@ func (h *RecommendationHandler) GetContentBasedRecommendations(c *gin.Context) {
         limit = 20 // Safety limit
     }
     
-    // ⭐⭐ PERBAIKAN: Panggil service dulu untuk dapat recommendations
     recommendations, err := h.contentService.GetContentBasedRecommendations(songID, limit)
     if err != nil {
+        if errors.Is(err, repository.ErrSongNotFound) {
+            c.JSON(http.StatusNotFound, gin.H{
+                "status":  "error",
+                "message": "Song not found",
+            })
+            return
+        }
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "Failed to generate recommendations",
-            "error":   err.Error(),
         })
-        return  
+        return
     }
     
     // ⭐⭐ PERBAIKAN: Set like status untuk recommendations
@@ -157,10 +163,16 @@ func (h *RecommendationHandler) GetCollaborativeRecommendations(c *gin.Context) 
     
     recommendations, err := h.collaborativeService.GetCollaborativeRecommendations(userID, limit)
     if err != nil {
+        if errors.Is(err, repository.ErrUserNotFound) {
+            c.JSON(http.StatusUnauthorized, gin.H{
+                "status":  "error",
+                "message": "User not found",
+            })
+            return
+        }
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "Failed to generate recommendations",
-            "error":   err.Error(),
         })
         return
     }
@@ -226,19 +238,31 @@ func (h *RecommendationHandler) GetHybridRecommendations(c *gin.Context) {
     
     recommendations, err := h.hybridService.GetHybridRecommendations(userID, songID, limit)
     if err != nil {
+        if errors.Is(err, repository.ErrSongNotFound) {
+            c.JSON(http.StatusNotFound, gin.H{
+                "status":  "error",
+                "message": "Song not found",
+            })
+            return
+        }
+        if errors.Is(err, repository.ErrUserNotFound) {
+            c.JSON(http.StatusUnauthorized, gin.H{
+                "status":  "error",
+                "message": "User not found",
+            })
+            return
+        }
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "Failed to generate recommendations",
-            "error":   err.Error(),
         })
         return
     }
-    
-    // ⭐⭐ PERBAIKAN: Set like status untuk recommendations
+
     if userID > 0 {
         h.setLikeStatusForRecommendations(recommendations, userID)
     }
-    
+
     // Format scores and add rank untuk hybrid
     for i := range recommendations {
         recommendations[i].Rank = i + 1
@@ -278,15 +302,20 @@ func (h *RecommendationHandler) GetSmartHybridRecommendations(c *gin.Context) {
     
     recommendations, err := h.smartHybridService.GetSmartHybridRecommendations(userID, limit)
     if err != nil {
+        if errors.Is(err, repository.ErrUserNotFound) {
+            c.JSON(http.StatusUnauthorized, gin.H{
+                "status":  "error",
+                "message": "User not found",
+            })
+            return
+        }
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "Failed to generate recommendations",
-            "error":   err.Error(),
         })
         return
     }
-    
-    // ⭐⭐ PERBAIKAN: Set like status untuk recommendations
+
     if userID > 0 {
         h.setLikeStatusForRecommendations(recommendations, userID)
     }
@@ -326,12 +355,11 @@ func (h *RecommendationHandler) GetPopularSongs(c *gin.Context) {
     
     // ⭐⭐ PERBAIKAN: Ambil data dari database via songRepo
     // Kita perlu akses ke songRepo di RecommendationHandler
-    songs, err := h.songRepo.GetPopularSongs(limit) // Anda perlu tambah field ini di struct
+    songs, err := h.songRepo.GetPopularSongs(limit)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "Failed to fetch popular songs",
-            "error":   err.Error(),
         })
         return
     }

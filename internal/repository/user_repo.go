@@ -1,15 +1,17 @@
 package repository
 
 import (
-	"back_music/internal/database"
-	"back_music/internal/models"
 	"context"
 	"errors"
 	"time"
 
+	"back_music/internal/database"
+	"back_music/internal/models"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
+
+var ErrUserNotFound = errors.New("user not found")
 
 type UserRepository interface {
 	CreateUser(user *models.User) error
@@ -54,7 +56,6 @@ func (r *userRepo) FindUserByEmail(email string) (*models.User, error) {
 
 func (r *userRepo) FindUserByID(id uint) (*models.User, error) {
 	var user models.User
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -62,11 +63,12 @@ func (r *userRepo) FindUserByID(id uint) (*models.User, error) {
 		Preload("Likes").
 		Preload("Plays").
 		First(&user, id).Error
-
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
 		return nil, err
 	}
-
 	return &user, nil
 }
 

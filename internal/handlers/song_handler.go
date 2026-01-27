@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"mime/multipart"
@@ -132,18 +133,25 @@ func (h *SongHandler) GetSongByID(c *gin.Context) {
     
     song, err := h.songRepo.GetSongByID(songID)
     if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{
+        if errors.Is(err, repository.ErrSongNotFound) {
+            c.JSON(http.StatusNotFound, gin.H{
+                "status":  "error",
+                "message": "Song not found",
+            })
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
-            "message": "Song not found",
+            "message": "Failed to fetch song",
         })
         return
     }
-    
+
     if userID > 0 {
         isLiked, _ := h.songRepo.IsSongLikedByUser(songID, userID)
         song.IsLiked = isLiked
     }
-    
+
     c.JSON(http.StatusOK, gin.H{
         "status":  "success",
         "message": "Song fetched successfully",
@@ -191,16 +199,19 @@ func (h *SongHandler) LikeSong(c *gin.Context) {
         return
     }
     
-    // Check if song exists
     _, err := h.songRepo.GetSongByID(songID)
     if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{
-            "status":  "error",
-            "message": "Song not found",
-        })
+        if errors.Is(err, repository.ErrSongNotFound) {
+            c.JSON(http.StatusNotFound, gin.H{
+                "status":  "error",
+                "message": "Song not found",
+            })
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to fetch song"})
         return
     }
-    
+
     // Check if already liked
     var existingLike models.UserLike
     err = database.DB.Where("user_id = ? AND song_id = ?", userID, songID).First(&existingLike).Error
@@ -282,16 +293,19 @@ func (h *SongHandler) PlaySong(c *gin.Context) {
         return
     }
     
-    // Check if song exists
     _, err := h.songRepo.GetSongByID(songID)
     if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{
-            "status":  "error",
-            "message": "Song not found",
-        })
+        if errors.Is(err, repository.ErrSongNotFound) {
+            c.JSON(http.StatusNotFound, gin.H{
+                "status":  "error",
+                "message": "Song not found",
+            })
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to fetch song"})
         return
     }
-    
+
     // Find existing play record
     var play models.UserPlay
     err = database.DB.Where("user_id = ? AND song_id = ?", userID, songID).First(&play).Error
@@ -554,14 +568,16 @@ func (h *SongHandler) GetAudioSource(c *gin.Context) {
         return
     }
 
-    // 1. Ambil data lagu dari repo
     song, err := h.songRepo.GetSongByID(songID)
     if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Lagu tidak ditemukan"})
+        if errors.Is(err, repository.ErrSongNotFound) {
+            c.JSON(http.StatusNotFound, gin.H{"status": "error", "message": "Lagu tidak ditemukan"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to fetch song"})
         return
     }
 
-    // 2. Jika YoutubeID sudah ada di DB, langsung kirim (Hemat Kuota API)
     if song.YoutubeID != "" {
         c.JSON(http.StatusOK, gin.H{
             "status": "success",
@@ -573,17 +589,17 @@ func (h *SongHandler) GetAudioSource(c *gin.Context) {
         return
     }
 
-    // 3. Jika belum ada, cari otomatis ke YouTube
     searchQuery := fmt.Sprintf("%s - %s", song.Artist, song.Title)
     videoID, err := h.youtubeService.SearchAudio(searchQuery)
     if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Gagal mencari audio otomatis"})
+        c.JSON(http.StatusNotFound, gin.H{"status": "error", "message": "Gagal mencari audio otomatis"})
         return
     }
 
-    // 4. Simpan ke database (Caching)
     song.YoutubeID = videoID
-    h.songRepo.UpdateSong(song)
+    if err := h.songRepo.UpdateSong(song); err != nil {
+        log.Printf("[GetAudioSource] failed to cache YoutubeID for song %s: %v", songID, err)
+    }
 
     c.JSON(http.StatusOK, gin.H{
         "status": "success",

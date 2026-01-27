@@ -1,11 +1,13 @@
 package services
 
 import (
+	"errors"
 	"log"
 
 	"back_music/internal/config"
 	"back_music/internal/database"
 	"back_music/internal/models"
+	"back_music/internal/repository"
 )
 
 type SmartHybridService interface {
@@ -31,32 +33,38 @@ func NewSmartHybridService(content ContentBasedService, collaborative Collaborat
 
 func (s *smartHybridService) GetSmartHybridRecommendations(userID uint, limit int) ([]models.RecommendationScore, error) {
     log.Printf("🔄 Smart hybrid for user %d, limit %d", userID, limit)
-    
-    // 1. Cek jika user baru (no likes/plays)
+
     var likeCount, playCount int64
     database.DB.Model(&models.UserLike{}).Where("user_id = ?", userID).Count(&likeCount)
     database.DB.Model(&models.UserPlay{}).Where("user_id = ?", userID).Count(&playCount)
-    
     log.Printf("📊 User stats: %d likes, %d plays", likeCount, playCount)
-    
+
     if likeCount == 0 && playCount == 0 {
-        // User baru: return popular songs
         log.Println("👤 New user detected, returning popular songs")
         return s.getPopularSongsFallback(limit)
     }
-    
-    // 2. Cari seed song berdasarkan user behavior
+
     seedSongID, strategy := s.findBestSeedSong(userID)
-    
     if seedSongID == "" {
         log.Println("⚠️ No suitable seed song found, using collaborative")
         return s.collaborativeService.GetCollaborativeRecommendations(userID, limit)
     }
-    
+
     log.Printf("🎯 Using seed song: %s (strategy: %s)", seedSongID, strategy)
-    
-    // 3. Panggil hybrid service dengan seed yang ditemukan
-    return s.hybridService.GetHybridRecommendations(userID, seedSongID, limit)
+    recs, err := s.hybridService.GetHybridRecommendations(userID, seedSongID, limit)
+    if err != nil {
+        if errors.Is(err, repository.ErrSongNotFound) {
+            log.Println("⚠️ Seed song no longer exists, fallback to collaborative")
+            recs, err = s.collaborativeService.GetCollaborativeRecommendations(userID, limit)
+            if err != nil {
+                log.Printf("⚠️ Collaborative failed: %v, fallback to popular", err)
+                return s.getPopularSongsFallback(limit)
+            }
+            return recs, nil
+        }
+        return nil, err
+    }
+    return recs, nil
 }
 
 // ⭐⭐ FUNGSI BARU: Cari seed song terbaik
@@ -96,24 +104,22 @@ func (s *smartHybridService) findBestSeedSong(userID uint) (string, string) {
     return "", "none"
 }
 
-// ⭐⭐ FUNGSI HELPER: Popular songs fallback
 func (s *smartHybridService) getPopularSongsFallback(limit int) ([]models.RecommendationScore, error) {
-    // Get popular songs dari database
     var songs []models.Song
     if err := database.DB.Order("popularity DESC").Limit(limit).Find(&songs).Error; err != nil {
         return nil, err
     }
-    
-    // Convert ke RecommendationScore
+    if songs == nil {
+        songs = []models.Song{}
+    }
     recommendations := make([]models.RecommendationScore, 0, len(songs))
     for _, song := range songs {
         recommendations = append(recommendations, models.RecommendationScore{
             Song:      song,
-            Score:     float64(song.Popularity) / 100.0, // Normalize 0-1
+            Score:     float64(song.Popularity) / 100.0,
             ScoreType: "popular_fallback",
         })
     }
-    
     return recommendations, nil
 }
 
