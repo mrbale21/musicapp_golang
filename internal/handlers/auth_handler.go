@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -160,67 +159,34 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) Me(c *gin.Context) {
     userIDRaw, exists := c.Get("user_id")
     if !exists {
-        c.JSON(http.StatusUnauthorized, gin.H{
-            "status":  "error",
-            "message": "User not authenticated",
-        })
+        c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "Not authenticated"})
         return
     }
 
+    // Gunakan cara konversi yang lebih robust
     var uid uint
-
     switch v := userIDRaw.(type) {
-    case float64:
-        uid = uint(v)
-    case int:
-        uid = uint(v)
-    case int64:
-        uid = uint(v)
     case uint:
         uid = v
-    case uint64:
+    case float64:
         uid = uint(v)
     default:
-        c.JSON(http.StatusUnauthorized, gin.H{
-            "status":  "error",
-            "message": "Invalid user ID type",
-        })
+        // Jika gagal konversi, jangan biarkan lanjut ke DB
+        c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "Invalid session"})
         return
     }
 
     user, err := h.userRepo.FindUserByID(uid)
     if err != nil {
-        if errors.Is(err, repository.ErrUserNotFound) {
-            c.JSON(http.StatusUnauthorized, gin.H{
-                "status":  "error",
-                "message": "User not found",
-            })
-            return
-        }
-        log.Printf("[Me] FindUserByID error: %v", err)
-        c.JSON(http.StatusInternalServerError, gin.H{
-            "status":  "error",
-            "message": "Failed to fetch user data",
-        })
-        return
-    }
-
-    if user == nil {
-        c.JSON(http.StatusUnauthorized, gin.H{
-            "status":  "error",
-            "message": "User not found",
-        })
+        // Log error secara detail di server supaya kamu bisa liat di Railway Log
+        log.Printf("DB Error for User ID %d: %v", uid, err)
+        c.JSON(http.StatusNotFound, gin.H{"status": "error", "message": "User not found"})
         return
     }
 
     user.Password = ""
-
-    c.JSON(http.StatusOK, gin.H{
-        "status": "success",
-        "data":   user,
-    })
+    c.JSON(http.StatusOK, gin.H{"status": "success", "data": user})
 }
-
 
 func (h *AuthHandler) generateJWT(userID uint) (string, error) {
     token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
