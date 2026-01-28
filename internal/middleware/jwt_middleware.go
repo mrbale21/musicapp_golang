@@ -34,19 +34,57 @@ func JWTMiddleware() gin.HandlerFunc {
         }
         
         tokenString := parts[1]
+        if tokenString == "" {
+            c.JSON(http.StatusUnauthorized, gin.H{
+                "status":  "error",
+                "message": "Token is empty",
+            })
+            c.Abort()
+            return
+        }
         
         // Parse and validate token
         token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
             if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
                 return nil, jwt.ErrSignatureInvalid
             }
+            
+            // Validate JWT secret is set
+            if config.GlobalConfig.JWTSecret == "" {
+                return nil, jwt.ErrSignatureInvalid
+            }
+            
             return []byte(config.GlobalConfig.JWTSecret), nil
         })
         
-        if err != nil || !token.Valid {
+        if err != nil {
+            // Check if token is expired
+            if ve, ok := err.(*jwt.ValidationError); ok {
+                if ve.Errors&jwt.ValidationErrorExpired != 0 {
+                    c.JSON(http.StatusUnauthorized, gin.H{
+                        "status":  "error",
+                        "message": "Token has expired",
+                    })
+                } else {
+                    c.JSON(http.StatusUnauthorized, gin.H{
+                        "status":  "error",
+                        "message": "Invalid token",
+                    })
+                }
+            } else {
+                c.JSON(http.StatusUnauthorized, gin.H{
+                    "status":  "error",
+                    "message": "Token validation failed",
+                })
+            }
+            c.Abort()
+            return
+        }
+        
+        if !token.Valid {
             c.JSON(http.StatusUnauthorized, gin.H{
                 "status":  "error",
-                "message": "Invalid or expired token",
+                "message": "Invalid token",
             })
             c.Abort()
             return
@@ -59,7 +97,7 @@ func JWTMiddleware() gin.HandlerFunc {
             if !ok {
                 c.JSON(http.StatusUnauthorized, gin.H{
                     "status":  "error",
-                    "message": "Invalid token claims",
+                    "message": "Invalid token claims: user_id not found",
                 })
                 c.Abort()
                 return
