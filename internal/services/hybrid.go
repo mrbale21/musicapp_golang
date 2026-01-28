@@ -26,16 +26,21 @@ func NewHybridService(content ContentBasedService, collaborative CollaborativeSe
 }
 
 func (s *hybridService) GetHybridRecommendations(userID uint, songID string, limit int) ([]models.RecommendationScore, error) {
-    // Get content-based recommendations
+    // Selalu ambil content-based sebagai dasar hybrid
     contentRecs, err := s.contentService.GetContentBasedRecommendations(songID, limit*2)
     if err != nil {
         return nil, err
     }
     
-    // Get collaborative recommendations
-    collabRecs, err := s.collaborativeService.GetCollaborativeRecommendations(userID, limit*2)
-    if err != nil {
-        return nil, err
+    // Ambil collaborative recommendations hanya jika:
+    // - userID valid
+    // - dan weight collaborative > 0
+    // Jika gagal, kita abaikan saja dan tetap kembalikan content-based.
+    var collabRecs []models.RecommendationScore
+    if userID != 0 && s.config.CollaborativeWeight > 0 {
+        if cr, err := s.collaborativeService.GetCollaborativeRecommendations(userID, limit*2); err == nil {
+            collabRecs = cr
+        }
     }
     
     // Combine recommendations

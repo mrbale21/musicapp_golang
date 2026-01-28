@@ -35,9 +35,12 @@ func LoadConfig() error {
         log.Println("No .env file found, using environment variables")
     }
     
-    similarityThreshold, _ := strconv.ParseFloat(getEnv("SIMILARITY_THRESHOLD", "0.7"), 64)
-    contentWeight, _ := strconv.ParseFloat(getEnv("CONTENT_WEIGHT", "0.5"), 64)
-    collaborativeWeight, _ := strconv.ParseFloat(getEnv("COLLABORATIVE_WEIGHT", "0.5"), 64)
+    // Default tuning:
+    // - SIMILARITY_THRESHOLD diturunkan agar content-based lebih variatif
+    // - CONTENT_WEIGHT dibuat lebih besar agar hybrid/smart-hybrid lebih terasa beda dari pure collaborative
+    similarityThreshold, _ := strconv.ParseFloat(getEnv("SIMILARITY_THRESHOLD", "0.6"), 64)
+    contentWeight, _ := strconv.ParseFloat(getEnv("CONTENT_WEIGHT", "0.7"), 64)
+    collaborativeWeight, _ := strconv.ParseFloat(getEnv("COLLABORATIVE_WEIGHT", "0.3"), 64)
     
     GlobalConfig = &Config{
         SpotifyClientID:     getEnv("SPOTIFY_CLIENT_ID", ""),

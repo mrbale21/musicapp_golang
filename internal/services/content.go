@@ -47,8 +47,9 @@ func (s *contentBasedService) BuildFeatureVector(song *models.Song) []float64 {
         float64(song.TimeSignature) / 7.0, // Normalize time signature (3-7) to 0-1
     }
     
-    // Add popularity (normalized 0-100 to 0-1)
-    features = append(features, float64(song.Popularity)/100.0)
+    // Add popularity (normalized 0-100 ke 0-0.5) supaya
+    // pengaruh popularitas tidak terlalu mendominasi dibanding fitur audio.
+    features = append(features, (float64(song.Popularity)/100.0)*0.5)
     
     song.FeatureVector = features
     return features

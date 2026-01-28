@@ -134,8 +134,27 @@ func (s *collaborativeService) GetCollaborativeRecommendations(userID uint, limi
         userSongIDs[play.SongID] = true
     }
     
-    // Get all songs
-    allSongs, err := s.songRepo.GetAllSongs()
+    // Precompute preferred genres dari lagu-lagu yang user like (sekali query saja)
+    userGenres := make(map[string]int)
+    totalLikes := len(user.Likes)
+    if totalLikes > 0 {
+        ids := make([]string, 0, totalLikes)
+        for _, like := range user.Likes {
+            ids = append(ids, like.SongID)
+        }
+        likedSongs, err := s.songRepo.GetSongsByIDs(ids)
+        if err == nil {
+            for _, ls := range likedSongs {
+                if ls.Genre != "" {
+                    userGenres[ls.Genre]++
+                }
+            }
+        }
+    }
+    
+    // Ambil subset lagu populer saja (lebih cepat daripada full table scan),
+    // lalu filter yang belum pernah user dengar.
+    allSongs, err := s.songRepo.GetPopularSongs(limit * 3)
     if err != nil {
         return nil, err
     }
@@ -149,24 +168,16 @@ func (s *collaborativeService) GetCollaborativeRecommendations(userID uint, limi
         }
         
         // Simplified collaborative filtering:
-        // Score based on popularity and genre alignment with user's preferences
+        // Score based on popularity dan genre alignment dengan preferensi user.
+        // Genre dibuat jauh lebih dominan supaya hasilnya lebih beda
+        // dibanding content-based (yang fokus ke fitur audio).
         
         score := 0.0
         
-        // Popularity component
+        // Popularity component (0–1)
         popularityScore := float64(song.Popularity) / 100.0
         
-        // Genre alignment (check if song genre matches user's liked genres)
-        userGenres := make(map[string]int)
-        totalLikes := len(user.Likes)
-        
-        for _, like := range user.Likes {
-            likedSong, err := s.songRepo.GetSongByID(like.SongID)
-            if err == nil && likedSong.Genre != "" {
-                userGenres[likedSong.Genre]++
-            }
-        }
-        
+        // GenreScore: seberapa sering genre ini muncul di lagu yang user like (0–1)
         genreScore := 0.0
         if totalLikes > 0 && song.Genre != "" {
             genreCount := userGenres[song.Genre]
@@ -174,7 +185,8 @@ func (s *collaborativeService) GetCollaborativeRecommendations(userID uint, limi
         }
         
         // Combine scores
-        score = (popularityScore * 0.4) + (genreScore * 0.6)
+        // Lebih berat ke genre (0.8) dibanding popularity (0.2)
+        score = (popularityScore * 0.2) + (genreScore * 0.8)
         
         if score > 0.1 { // Threshold to avoid very low scores
             scores = append(scores, models.RecommendationScore{
