@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 
@@ -35,66 +34,19 @@ func JWTMiddleware() gin.HandlerFunc {
         }
         
         tokenString := parts[1]
-        if tokenString == "" {
-            c.JSON(http.StatusUnauthorized, gin.H{
-                "status":  "error",
-                "message": "Token is empty",
-            })
-            c.Abort()
-            return
-        }
         
         // Parse and validate token
         token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
             if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-                return nil, jwt.ErrTokenSignatureInvalid
+                return nil, jwt.ErrSignatureInvalid
             }
-            
-            // Validate JWT secret is set
-            if config.GlobalConfig.JWTSecret == "" {
-                return nil, jwt.ErrTokenSignatureInvalid
-            }
-            
             return []byte(config.GlobalConfig.JWTSecret), nil
         })
         
-        if err != nil {
-            // Check error type (JWT v5 compatible - using errors.Is)
-            if errors.Is(err, jwt.ErrTokenExpired) {
-                c.JSON(http.StatusUnauthorized, gin.H{
-                    "status":  "error",
-                    "message": "Token has expired",
-                })
-            } else if errors.Is(err, jwt.ErrTokenNotValidYet) {
-                c.JSON(http.StatusUnauthorized, gin.H{
-                    "status":  "error",
-                    "message": "Token not valid yet",
-                })
-            } else if errors.Is(err, jwt.ErrTokenSignatureInvalid) {
-                c.JSON(http.StatusUnauthorized, gin.H{
-                    "status":  "error",
-                    "message": "Invalid token signature",
-                })
-            } else if errors.Is(err, jwt.ErrTokenMalformed) {
-                c.JSON(http.StatusUnauthorized, gin.H{
-                    "status":  "error",
-                    "message": "Token is malformed",
-                })
-            } else {
-                // Generic error message
-                c.JSON(http.StatusUnauthorized, gin.H{
-                    "status":  "error",
-                    "message": "Token validation failed",
-                })
-            }
-            c.Abort()
-            return
-        }
-        
-        if !token.Valid {
+        if err != nil || !token.Valid {
             c.JSON(http.StatusUnauthorized, gin.H{
                 "status":  "error",
-                "message": "Invalid token",
+                "message": "Invalid or expired token",
             })
             c.Abort()
             return
@@ -107,7 +59,7 @@ func JWTMiddleware() gin.HandlerFunc {
             if !ok {
                 c.JSON(http.StatusUnauthorized, gin.H{
                     "status":  "error",
-                    "message": "Invalid token claims: user_id not found",
+                    "message": "Invalid token claims",
                 })
                 c.Abort()
                 return
@@ -147,7 +99,7 @@ func OptionalJWTMiddleware() gin.HandlerFunc {
         // Try to parse token
         token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
             if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-                return nil, jwt.ErrTokenSignatureInvalid
+                return nil, jwt.ErrSignatureInvalid
             }
             return []byte(config.GlobalConfig.JWTSecret), nil
         })

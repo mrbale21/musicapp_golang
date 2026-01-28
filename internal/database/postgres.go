@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"gorm.io/driver/postgres"
+	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -33,9 +33,25 @@ func ConnectDB() error {
 	)
 
 	var err error
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Warn),
-	})
+
+	// IMPORTANT:
+	// Railway / Supabase biasanya memakai PgBouncer (transaction mode) yang
+	// TIDAK cocok dengan prepared statements + statement cache bawaan pgx.
+	// Ini yang menyebabkan error:
+	//   "prepared statement \"stmtcache_xxx\" already exists (SQLSTATE 42P05)"
+	//
+	// Solusi: pakai PreferSimpleProtocol=true agar pgx TIDAK memakai prepared
+	// statements secara implisit. Ini aman untuk workload kita dan
+	// menghilangkan error 500 di endpoint rekomendasi content-based.
+	DB, err = gorm.Open(
+		gormpostgres.New(gormpostgres.Config{
+			DSN:                  dsn,
+			PreferSimpleProtocol: true, // ⬅ matikan implicit prepared statements
+		}),
+		&gorm.Config{
+			Logger: logger.Default.LogMode(logger.Warn),
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("failed to connect database: %w", err)
 	}
