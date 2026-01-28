@@ -34,12 +34,23 @@ func SetupRoutes(
 	frontendURL := os.Getenv("CORS_ORIGIN") // https://musicapp-frontend.vercel.app
 
 	corsConfig := cors.Config{
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Content-Type", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}
+    AllowOriginFunc: func(origin string) bool {
+        return true // TERIMA SEMUA ORIGIN
+    },
+    AllowMethods: []string{
+        "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS",
+    },
+    AllowHeaders: []string{
+        "Content-Type",
+        "Authorization",
+    },
+    ExposeHeaders: []string{
+        "Content-Length",
+    },
+    AllowCredentials: false, // ⬅️ WAJIB FALSE
+    MaxAge: 12 * time.Hour,
+}
+
 
 	if env == "production" {
 		// 🔒 PROD MODE (AMAN)
