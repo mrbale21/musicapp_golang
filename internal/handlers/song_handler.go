@@ -41,6 +41,8 @@ func NewSongHandler(songRepo repository.SongRepository, userRepo repository.User
 func (h *SongHandler) GetAllSongs(c *gin.Context) {
     userID := c.GetUint("user_id")
     
+  
+
     var songs []models.Song
     var err error
     
@@ -121,6 +123,7 @@ func (h *SongHandler) SearchSongs(c *gin.Context) {
 func (h *SongHandler) GetSongByID(c *gin.Context) {
     songID := c.Param("id")
     
+    
     // Validate UUID format to prevent invalid UUID errors in DB
     if _, err := uuid.Parse(songID); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{
@@ -189,6 +192,15 @@ func (h *SongHandler) SeedSongs(c *gin.Context) {
 func (h *SongHandler) LikeSong(c *gin.Context) {
     userID := c.GetUint("user_id")
     songID := c.Param("song_id")
+
+    if userID == 0 {
+    c.JSON(http.StatusUnauthorized, gin.H{
+        "status": "error",
+        "message": "Unauthorized",
+    })
+    return
+}
+
     
     // Validate UUID format before using in queries
     if _, err := uuid.Parse(songID); err != nil {
@@ -247,6 +259,15 @@ func (h *SongHandler) LikeSong(c *gin.Context) {
 func (h *SongHandler) UnlikeSong(c *gin.Context) {
     userID := c.GetUint("user_id")
     songID := c.Param("song_id")
+
+    if userID == 0 {
+    c.JSON(http.StatusUnauthorized, gin.H{
+        "status": "error",
+        "message": "Unauthorized",
+    })
+    return
+}
+
     
     // Validate UUID format before using in queries
     if _, err := uuid.Parse(songID); err != nil {
@@ -283,6 +304,15 @@ func (h *SongHandler) UnlikeSong(c *gin.Context) {
 func (h *SongHandler) PlaySong(c *gin.Context) {
     userID := c.GetUint("user_id")
     songID := c.Param("song_id")
+
+    if userID == 0 {
+    c.JSON(http.StatusUnauthorized, gin.H{
+        "status": "error",
+        "message": "Unauthorized",
+    })
+    return
+}
+
     
     // Validate UUID format before using in queries
     if _, err := uuid.Parse(songID); err != nil {
@@ -349,6 +379,14 @@ func (h *SongHandler) PlaySong(c *gin.Context) {
 
 func (h *SongHandler) GetUserLikes(c *gin.Context) {
     userID := c.GetUint("user_id")
+
+if userID == 0 {
+    c.JSON(http.StatusUnauthorized, gin.H{
+        "status": "error",
+        "message": "Unauthorized",
+    })
+    return
+}
     
     var likes []models.UserLike
     if err := database.DB.Preload("Song").Where("user_id = ?", userID).Find(&likes).Error; err != nil {
