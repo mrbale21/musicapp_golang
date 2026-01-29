@@ -12,6 +12,7 @@ type UserLike struct {
     
     // Relationships
     User User `gorm:"foreignKey:UserID" json:"-"`
+    Song Song `gorm:"foreignKey:SongID" json:"song"`
 }
 
 type UserPlay struct {
