@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -44,9 +45,15 @@ func JWTMiddleware() gin.HandlerFunc {
         })
         
         if err != nil || !token.Valid {
+            message := "Invalid token"
+            if errors.Is(err, jwt.ErrTokenExpired) {
+                message = "Token expired"
+            } else if errors.Is(err, jwt.ErrTokenNotValidYet) {
+                message = "Token not valid yet"
+            }
             c.JSON(http.StatusUnauthorized, gin.H{
                 "status":  "error",
-                "message": "Invalid or expired token",
+                "message": message,
             })
             c.Abort()
             return
