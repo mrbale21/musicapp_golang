@@ -1,9 +1,7 @@
 package routes
 
 import (
-	"log"
 	"os"
-	"strings"
 	"time"
 
 	"back_music/internal/handlers"
@@ -33,74 +31,34 @@ func SetupRoutes(
 	// CORS CONFIG (DEV / PROD)
 	// =========================
 	env := os.Getenv("ENV") // development | production
-	frontendURL := os.Getenv("CORS_ORIGIN")
+	frontendURL := os.Getenv("CORS_ORIGIN") // https://musicapp-frontend.vercel.app
 
 	corsConfig := cors.Config{
+        // JANGAN set AllowAllOrigins: true jika ingin pakai AllowCredentials
         AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
         AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"},
-        ExposeHeaders:    []string{"Content-Length", "Authorization"},
+        ExposeHeaders:    []string{"Content-Length"},
         AllowCredentials: true,
         MaxAge:           12 * time.Hour,
     }
 
     if env == "production" {
-        // 🔒 PROD MODE: Require CORS_ORIGIN to be explicitly set
-        if frontendURL == "" {
-            log.Fatal("❌ CORS_ORIGIN environment variable is NOT set in production!")
-        }
-        corsConfig.AllowOrigins = []string{frontendURL}
-        log.Printf("✅ CORS configured for production: %s", frontendURL)
-    } else {
-        // 🔓 DEV MODE: Allow flexible origins
-        allowedOrigins := []string{
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://localhost:5173",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:3001",
-            "http://127.0.0.1:5173",
-        }
-        
-        // If CORS_ORIGIN set in dev, also add it
+        // 🔒 PROD MODE: Menggunakan URL Vercel dari Railway
+        // Jika frontendURL kosong, sebaiknya beri fallback atau log
         if frontendURL != "" {
-            allowedOrigins = append(allowedOrigins, frontendURL)
+            corsConfig.AllowOrigins = []string{frontendURL}
+        } else {
+            // Fallback jika lupa set env di production (opsional)
+            corsConfig.AllowOrigins = []string{"https://musicapp-gules-pi.vercel.app"}
         }
-        
+    } else {
+        // 🔓 DEV MODE: Anti CORS untuk lokal/mobile
         corsConfig.AllowOriginFunc = func(origin string) bool {
-            // Allow all localhost/127.0.0.1 variants
-            for _, allowed := range allowedOrigins {
-                if origin == allowed {
-                    return true
-                }
-            }
-            // Allow local network IPs (192.168.x.x, 10.x.x.x)
-            if strings.HasPrefix(origin, "http://192.168.") || strings.HasPrefix(origin, "http://10.") {
-                return true
-            }
-            return false
+            return true
         }
-        log.Printf("✅ CORS configured for development with %d allowed origins", len(allowedOrigins))
     }
 
-
 	router.Use(cors.New(corsConfig))
-
-	// =========================
-	// SECURITY HEADERS MIDDLEWARE
-	// =========================
-	router.Use(func(c *gin.Context) {
-		// Prevent clickjacking
-		c.Header("X-Frame-Options", "DENY")
-		// Prevent MIME type sniffing
-		c.Header("X-Content-Type-Options", "nosniff")
-		// Enable XSS protection
-		c.Header("X-XSS-Protection", "1; mode=block")
-		// Referrer policy
-		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
-		// Content Security Policy (lenient untuk API)
-		c.Header("Content-Security-Policy", "default-src 'self'")
-		c.Next()
-	})
 
 	// =========================
 	// API ROUTES

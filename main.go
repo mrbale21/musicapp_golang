@@ -38,11 +38,6 @@ func main() {
 	}
 
 	// =========================
-	// RUN MIGRATIONS
-	// =========================
-	database.RunMigrations()
-
-	// =========================
 	// DB KEEP ALIVE (SAFE)
 	// =========================
 	go func() {
@@ -140,13 +135,7 @@ func main() {
 	log.Println("🎵   BACK MUSIC API SERVER")
 	log.Println("🎵 =======================================")
 	log.Printf("🎵   Running on: %s", addr)
-	
-	env := os.Getenv("ENV")
-	if env == "" {
-		env = "development"
-	}
-	log.Printf("🎵   Environment: %s", env)
-	
+	log.Println("🎵   Environment: Production (Railway)")
 	log.Println("🎵 =======================================")
 	log.Println("🚀 Server started")
 
