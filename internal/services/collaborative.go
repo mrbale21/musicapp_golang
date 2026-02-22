@@ -3,6 +3,7 @@ package services
 import (
 	"math"
 	"sort"
+	"strings"
 
 	"back_music/internal/config"
 	"back_music/internal/models"
@@ -167,11 +168,7 @@ func (s *collaborativeService) GetCollaborativeRecommendations(userID uint, limi
             continue // Skip songs user already knows
         }
         
-        // Simplified collaborative filtering:
-        // Score based on popularity dan genre alignment dengan preferensi user.
-        // Genre dibuat jauh lebih dominan supaya hasilnya lebih beda
-        // dibanding content-based (yang fokus ke fitur audio).
-        
+        // Enhanced collaborative filtering with diversity consideration
         score := 0.0
         
         // Popularity component (0–1)
@@ -184,11 +181,38 @@ func (s *collaborativeService) GetCollaborativeRecommendations(userID uint, limi
             genreScore = float64(genreCount) / float64(totalLikes)
         }
         
-        // Combine scores
-        // Lebih berat ke genre (0.8) dibanding popularity (0.2)
-        score = (popularityScore * 0.2) + (genreScore * 0.8)
+        // Diversity bonus: reward genres user hasn't explored much
+        diversityBonus := 0.0
+        if song.Genre != "" {
+            genreCount := userGenres[song.Genre]
+            // Jika genre jarang di-like, beri bonus untuk exploration
+            if genreCount <= 1 { // 0 or 1 likes = unexplored
+                diversityBonus = 0.25
+            } else if genreCount <= 3 { // 2-3 likes = somewhat explored
+                diversityBonus = 0.15
+            }
+            // else no bonus untuk genre yang sudah banyak di-like
+        }
         
-        if score > 0.1 { // Threshold to avoid very low scores
+        // Artist diversity: slight boost untuk artist yang belum pernah didengar
+        artistBonus := 0.0
+        userArtistMap := make(map[string]bool)
+        for _, like := range user.Likes {
+            likedSong, _ := s.songRepo.GetSongByID(like.SongID)
+            if likedSong.Artist != "" {
+                userArtistMap[strings.ToLower(likedSong.Artist)] = true
+            }
+        }
+        
+        if !userArtistMap[strings.ToLower(song.Artist)] {
+            artistBonus = 0.1 // New artist discovery bonus
+        }
+        
+        // Combine scores with improved diversity
+        // Base: genre (0.5) + popularity (0.15) + diversity (0.25) + artist (0.1)
+        score = (genreScore * 0.5) + (popularityScore * 0.15) + (diversityBonus * 0.25) + (artistBonus * 0.1)
+        
+        if score > 0.05 { // Lower threshold to allow more diverse results
             scores = append(scores, models.RecommendationScore{
                 Song:      song,
                 Score:     score,
@@ -201,6 +225,21 @@ func (s *collaborativeService) GetCollaborativeRecommendations(userID uint, limi
     sort.Slice(scores, func(i, j int) bool {
         return scores[i].Score > scores[j].Score
     })
+    
+    // Add diversity spread: shuffle similar scores slightly
+    if len(scores) > 1 {
+        for i := 0; i < len(scores)-1; i++ {
+            // If scores are very close (within 0.05), swap to add variety
+            if math.Abs(scores[i].Score-scores[i+1].Score) < 0.05 {
+                // Keep order but add small variation to prevent identical scores
+                scores[i].Score += float64(i%3) * 0.01
+            }
+        }
+        // Re-sort after adding variation
+        sort.Slice(scores, func(i, j int) bool {
+            return scores[i].Score > scores[j].Score
+        })
+    }
     
     // Return top N recommendations
     if len(scores) > limit {

@@ -52,9 +52,19 @@ func SetupRoutes(
             corsConfig.AllowOrigins = []string{"https://musicapp-gules-pi.vercel.app"}
         }
     } else {
-        // 🔓 DEV MODE: Anti CORS untuk lokal/mobile
+        // 🔓 DEV MODE: Anti CORS untuk lokal/mobile/network
+        corsConfig.AllowOrigins = []string{
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:5173", // Vite default
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001",
+            "http://127.0.0.1:5173",
+        }
+        // Untuk network access (HP di IP lokal), allow semua origin yang valid
         corsConfig.AllowOriginFunc = func(origin string) bool {
-            return true
+            // Allow localhost dan IP lokal network
+            return true // Lebih fleksibel untuk development
         }
     }
 

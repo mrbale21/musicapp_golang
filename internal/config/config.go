@@ -35,6 +35,9 @@ func LoadConfig() error {
         log.Println("No .env file found, using environment variables")
     }
     
+    // Check environment
+    env := getEnv("ENV", "development") // default to development
+    
     // Default tuning:
     // - SIMILARITY_THRESHOLD diturunkan agar content-based lebih variatif
     // - CONTENT_WEIGHT dibuat lebih besar agar hybrid/smart-hybrid lebih terasa beda dari pure collaborative
@@ -42,17 +45,37 @@ func LoadConfig() error {
     contentWeight, _ := strconv.ParseFloat(getEnv("CONTENT_WEIGHT", "0.7"), 64)
     collaborativeWeight, _ := strconv.ParseFloat(getEnv("COLLABORATIVE_WEIGHT", "0.3"), 64)
     
+    // Set DB defaults based on environment
+    var dbHost, dbPort, dbUser, dbPassword, dbName, dbSSLMode string
+    if env == "production" {
+        // Production defaults (Railway/Supabase)
+        dbHost = getEnv("DB_HOST", "")
+        dbPort = getEnv("DB_PORT", "5432")
+        dbUser = getEnv("DB_USER", "")
+        dbPassword = getEnv("DB_PASSWORD", "")
+        dbName = getEnv("DB_NAME", "")
+        dbSSLMode = getEnv("DB_SSLMODE", "require")
+    } else {
+        // Development defaults (local)
+        dbHost = getEnv("DB_HOST", "localhost")
+        dbPort = getEnv("DB_PORT", "5432")
+        dbUser = getEnv("DB_USER", "postgres")
+        dbPassword = getEnv("DB_PASSWORD", "password")
+        dbName = getEnv("DB_NAME", "music_app")
+        dbSSLMode = getEnv("DB_SSLMODE", "disable")
+    }
+    
     GlobalConfig = &Config{
         SpotifyClientID:     getEnv("SPOTIFY_CLIENT_ID", ""),
         SpotifyClientSecret: getEnv("SPOTIFY_CLIENT_SECRET", ""),
         RedirectURI:         getEnv("REDIRECT_URI", "http://localhost:8080/callback"),
         
-        DBHost:     getEnv("DB_HOST", "localhost"),
-        DBPort:     getEnv("DB_PORT", "5432"),
-        DBUser:     getEnv("DB_USER", "postgres"),
-        DBPassword: getEnv("DB_PASSWORD", ""),
-        DBName:     getEnv("DB_NAME", "music_app"),
-        DBSSLMode:  getEnv("DB_SSLMODE", "require"),
+        DBHost:     dbHost,
+        DBPort:     dbPort,
+        DBUser:     dbUser,
+        DBPassword: dbPassword,
+        DBName:     dbName,
+        DBSSLMode:  dbSSLMode,
         
         ServerPort: getEnv("SERVER_PORT", "8080"),
         JWTSecret:  getEnv("JWT_SECRET", "default-jwt-secret-change-in-production"),

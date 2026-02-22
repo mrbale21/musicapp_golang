@@ -43,7 +43,7 @@ func (s *hybridService) GetHybridRecommendations(userID uint, songID string, lim
         }
     }
     
-    // Combine recommendations
+    // Combine recommendations with improved diversity
     combinedScores := make(map[string]models.RecommendationScore)
     
     // Add content-based scores with weight
@@ -74,6 +74,18 @@ func (s *hybridService) GetHybridRecommendations(userID uint, songID string, lim
     sort.Slice(finalScores, func(i, j int) bool {
         return finalScores[i].Score > finalScores[j].Score
     })
+    
+    // Add diversity spread to prevent very similar scores
+    // This creates more variation in results
+    if len(finalScores) > 1 {
+        for i := 0; i < len(finalScores)-1; i++ {
+            // If scores are too similar (within 0.03), add small variance
+            if finalScores[i].Score-finalScores[i+1].Score < 0.03 && finalScores[i].Score > 0 {
+                // Add position-based variance to create more separation
+                finalScores[i+1].Score -= float64((i+1)%5) * 0.005
+            }
+        }
+    }
     
     // Return top N recommendations
     if len(finalScores) > limit {

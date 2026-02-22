@@ -82,21 +82,72 @@ func (s *contentBasedService) CalculateSimilarity(song1, song2 *models.Song) flo
     
     similarity := dotProduct / (norm1 * norm2)
     
-    // Boost similarity for same artist or genre
+    // Calculate diversity score to spread results (IMPROVED)
+    diversityScore := s.calculateDiversityScore(song1, song2)
+    
+    // Combine: 70% audio similarity, 30% diversity consideration
+    baseScore := similarity * 0.7
+    diverseScore := diversityScore * 0.3
+    combinedScore := baseScore + diverseScore
+    
+    // REDUCED boosts to differentiate results more:
+    // - Same artist: +0.15 (was 0.3) - avoid clustering same artist
+    // - Same genre: +0.08 (was 0.2) - encourage genre exploration
     if strings.EqualFold(song1.Artist, song2.Artist) {
-        similarity += 0.3
+        combinedScore += 0.15
     }
     
     if strings.EqualFold(song1.Genre, song2.Genre) && song1.Genre != "" {
-        similarity += 0.2
+        combinedScore += 0.08
     }
     
     // Ensure similarity doesn't exceed 1.0
-    if similarity > 1.0 {
-        similarity = 1.0
+    if combinedScore > 1.0 {
+        combinedScore = 1.0
     }
     
-    return similarity
+    return combinedScore
+}
+
+// calculateDiversityScore emphasizes differences between songs
+func (s *contentBasedService) calculateDiversityScore(song1, song2 *models.Song) float64 {
+    // Calculate how DIFFERENT the songs are
+    // Opposite of similarity - promotes genre/artist variety
+    
+    // Tempo difference (reward different tempos)
+    tempoDiff := math.Abs(song1.Tempo-song2.Tempo) / 250.0
+    
+    // Energy difference (reward different energy levels)
+    energyDiff := math.Abs(song1.Energy - song2.Energy)
+    
+    // Valence difference (reward different moods/positivity)
+    valenceDiff := math.Abs(song1.Valence - song2.Valence)
+    
+    // Danceability difference
+    danceabilityDiff := math.Abs(song1.Danceability - song2.Danceability)
+    
+    // Genre diversity boost
+    genreDiversity := 0.0
+    if song1.Genre != "" && song2.Genre != "" && !strings.EqualFold(song1.Genre, song2.Genre) {
+        genreDiversity = 0.3 // Boost for different genres
+    }
+    
+    // Artist diversity boost
+    artistDiversity := 0.0
+    if !strings.EqualFold(song1.Artist, song2.Artist) {
+        artistDiversity = 0.2 // Boost for different artists
+    }
+    
+    // Combine diversity factors (weighted)
+    diversityScore := (tempoDiff*0.2 + energyDiff*0.2 + valenceDiff*0.2 + 
+        danceabilityDiff*0.15 + genreDiversity*0.15 + artistDiversity*0.1)
+    
+    // Normalize to 0-1 range
+    if diversityScore > 1.0 {
+        diversityScore = 1.0
+    }
+    
+    return diversityScore
 }
 
 // internal/services/content_based_service.go
