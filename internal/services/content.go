@@ -159,10 +159,42 @@ func (s *contentBasedService) GetContentBasedRecommendations(songID string, limi
         return nil, err
     }
     
-    // Get all songs
-    allSongs, err := s.songRepo.GetAllSongs()
-    if err != nil {
-        return nil, err
+    // ⭐ OPTIMIZED: Instead of loading ALL songs, filter by similar criteria
+    // Get songs with same or similar genre (much faster)
+    var allSongs []models.Song
+    
+    if targetSong.Genre != "" {
+        // Try to get by genre first (faster than all songs)
+        genreSongs, err := s.songRepo.GetSongsByGenre(targetSong.Genre, limit*5)
+        if err == nil && len(genreSongs) > 0 {
+            allSongs = genreSongs
+        }
+    }
+    
+    // If genre filtering not available or too few results, fall back to popular songs
+    if len(allSongs) < limit*2 {
+        popularSongs, err := s.songRepo.GetPopularSongs(limit * 5)
+        if err == nil {
+            // Merge and deduplicate
+            songMap := make(map[string]models.Song)
+            for _, s := range allSongs {
+                songMap[s.ID] = s
+            }
+            for _, s := range popularSongs {
+                songMap[s.ID] = s
+            }
+            for _, s := range songMap {
+                allSongs = append(allSongs, s)
+            }
+        }
+    }
+    
+    // If still no songs (fallback for safety)
+    if len(allSongs) == 0 {
+        allSongs, err = s.songRepo.GetAllSongs()
+        if err != nil {
+            return nil, err
+        }
     }
     
     // Calculate similarity scores

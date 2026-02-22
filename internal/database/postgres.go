@@ -99,6 +99,26 @@ func AutoMigrate() error {
 		}
 	}
 
-	log.Println("✅ Database migration completed")
+	// ⭐ Create performance indexes
+	log.Println("📍 Creating performance indexes...")
+	
+	// Songs indexes for faster filtering
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_songs_genre ON songs(genre)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_songs_popularity ON songs(popularity DESC)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_songs_artist ON songs(artist)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_songs_spotify_id ON songs(spotify_id)")
+	
+	// UserLike indexes for faster user preference queries
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_user_likes_user_id ON user_likes(user_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_user_likes_song_id ON user_likes(song_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_user_likes_created_at ON user_likes(user_id, created_at DESC)")
+	
+	// UserPlay indexes for faster play history queries
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_user_plays_user_id ON user_plays(user_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_user_plays_song_id ON user_plays(song_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_user_plays_play_count ON user_plays(user_id, play_count DESC)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_user_plays_last_played ON user_plays(user_id, last_played DESC)")
+	
+	log.Println("✅ Database migration & indexes completed")
 	return nil
 }

@@ -137,6 +137,7 @@ func (s *collaborativeService) GetCollaborativeRecommendations(userID uint, limi
     
     // Precompute preferred genres dari lagu-lagu yang user like (sekali query saja)
     userGenres := make(map[string]int)
+    userArtists := make(map[string]bool) // ⭐ Build ONCE outside loop
     totalLikes := len(user.Likes)
     if totalLikes > 0 {
         ids := make([]string, 0, totalLikes)
@@ -148,6 +149,10 @@ func (s *collaborativeService) GetCollaborativeRecommendations(userID uint, limi
             for _, ls := range likedSongs {
                 if ls.Genre != "" {
                     userGenres[ls.Genre]++
+                }
+                // ⭐ Build artist map once here
+                if ls.Artist != "" {
+                    userArtists[strings.ToLower(ls.Artist)] = true
                 }
             }
         }
@@ -195,16 +200,9 @@ func (s *collaborativeService) GetCollaborativeRecommendations(userID uint, limi
         }
         
         // Artist diversity: slight boost untuk artist yang belum pernah didengar
+        // ⭐ Use pre-built map instead of querying in loop
         artistBonus := 0.0
-        userArtistMap := make(map[string]bool)
-        for _, like := range user.Likes {
-            likedSong, _ := s.songRepo.GetSongByID(like.SongID)
-            if likedSong.Artist != "" {
-                userArtistMap[strings.ToLower(likedSong.Artist)] = true
-            }
-        }
-        
-        if !userArtistMap[strings.ToLower(song.Artist)] {
+        if !userArtists[strings.ToLower(song.Artist)] {
             artistBonus = 0.1 // New artist discovery bonus
         }
         
