@@ -69,6 +69,20 @@ go run main.go
 
 Server akan berjalan di `http://localhost:8080` dan bisa diakses dari network di `http://[IP-KOMPUTER]:8080`
 
+**🌱 First-time Setup - Automatic Seeding:**
+Saat pertama kali app dijalankan di mode development, sistem otomatis akan:
+
+- Membuat table database (migration)
+- Membuat akun admin default:
+  - **Email**: `admin@musicapp.local`
+  - **Password**: `admin123`
+  - ⚠️ **GANTI PASSWORD INI DI PRODUCTION!**
+
+**📝 Demo Users juga dibuat otomatis**:
+
+- `demo1@musicapp.local` / `demo123`
+- `demo2@musicapp.local` / `demo123`
+
 ### 7. Untuk Development dengan React (Network Access)
 
 Jika ingin akses dari HP/device lain di jaringan lokal:
@@ -100,16 +114,47 @@ const API_BASE = "http://192.168.1.15:8080/api"; // Ganti dengan IP komputer And
 
 ## Environment Variables
 
-| Variable    | Development Default | Production                       | Description           |
-| ----------- | ------------------- | -------------------------------- | --------------------- |
-| ENV         | development         | production                       | Environment mode      |
-| DB_HOST     | localhost           | (from Railway)                   | Database host         |
-| DB_PORT     | 5432                | 5432                             | Database port         |
-| DB_USER     | postgres            | (from Railway)                   | Database user         |
-| DB_PASSWORD | password            | (from Railway)                   | Database password     |
-| DB_NAME     | music_app           | (from Railway)                   | Database name         |
-| DB_SSLMODE  | disable             | require                          | SSL mode              |
-| JWT_SECRET  | default-jwt-secret  | (set in Railway)                 | JWT signing secret    || YOUTUBE_API_KEY | -                   | (optional)                        | YouTube Data API v3 key untuk pencarian audio || CORS_ORIGIN | -                   | https://your-frontend.vercel.app | Frontend URL for CORS |
+| Variable        | Development Default | Production                       | Description                                   |
+| --------------- | ------------------- | -------------------------------- | --------------------------------------------- |
+| ENV             | development         | production                       | Environment mode                              |
+| DB_HOST         | localhost           | (from Railway)                   | Database host                                 |
+| DB_PORT         | 5432                | 5432                             | Database port                                 |
+| DB_USER         | postgres            | (from Railway)                   | Database user                                 |
+| DB_PASSWORD     | password            | (from Railway)                   | Database password                             |
+| DB_NAME         | music_app           | (from Railway)                   | Database name                                 |
+| DB_SSLMODE      | disable             | require                          | SSL mode                                      |
+| JWT_SECRET      | default-jwt-secret  | (set in Railway)                 | JWT signing secret                            |
+| YOUTUBE_API_KEY | -                   | (optional)                       | YouTube Data API v3 key untuk pencarian audio |
+| CORS_ORIGIN     | -                   | https://your-frontend.vercel.app | Frontend URL for CORS                         |
+
+## 🌱 Database Seeding
+
+### Development Mode (Otomatis)
+
+Saat app pertama kali dijalankan dengan `ENV=development`:
+
+- Migration otomatis dijalankan (membuat tables)
+- Seeding otomatis dijalankan (membuat admin user & demo users)
+- **Jika sudah ada admin user, seeding SKIP** (safety check)
+
+### Production Mode (Manual)
+
+Untuk production, Anda punya 2 opsi:
+
+**Opsi 1: Manual SQL Seed**
+
+```bash
+# Restore dari backup
+psql -U username -d database_name < database-backup.sql
+```
+
+**Opsi 2: Programmatic (dari Go app)**
+Di production, seeding tidak otomatis. Tapi bisa dipanggil manual via endpoint custom atau CLI command:
+
+```go
+// Contoh: dibuat endpoint admin untuk seeding
+database.SeedInitialData()
+```
 
 ## API Endpoints
 

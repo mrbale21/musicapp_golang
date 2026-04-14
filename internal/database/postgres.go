@@ -76,10 +76,14 @@ func ConnectDB() error {
 
 	// OPTIONAL tapi recommended
 	if os.Getenv("ENV") != "production" {
-	if err := AutoMigrate(); err != nil {
-		return err
+		if err := AutoMigrate(); err != nil {
+			return err
+		}
+		// Seed initial data (admin user, etc) jika belum ada
+		if err := SeedInitialData(); err != nil {
+			log.Printf("⚠️ Seeding warning (non-critical): %v", err)
+		}
 	}
-}
 
 	return nil
 }
