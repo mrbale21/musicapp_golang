@@ -2,6 +2,7 @@ package routes
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"back_music/internal/handlers"
@@ -43,16 +44,20 @@ func SetupRoutes(
     }
 
     if env == "production" {
-        // 🔒 PROD MODE: Menggunakan URL Vercel dari Railway
-        // Jika frontendURL kosong, sebaiknya beri fallback atau log
-        if frontendURL != "" {
-            corsConfig.AllowOrigins = []string{frontendURL}
-        } else {
-            // Fallback jika lupa set env di production (opsional)
-            corsConfig.AllowOrigins = []string{"https://musicapp-gules-pi.vercel.app"}
+        // 🔒 PROD MODE: Ketat tapi flexible untuk testing
+        corsConfig.AllowOriginFunc = func(origin string) bool {
+            // Allow specific production domain jika di-set
+            if frontendURL != "" {
+                return origin == frontendURL
+            }
+            // Allow common production URLs & ngrok for testing
+            return strings.Contains(origin, "ngrok") || 
+                   strings.Contains(origin, "vercel.app") ||
+                   strings.Contains(origin, "localhost") ||
+                   strings.HasPrefix(origin, "http://localhost")
         }
     } else {
-        // 🔓 DEV MODE: Anti CORS untuk lokal/mobile
+        // 🔓 DEV MODE: Accept semua origin
         corsConfig.AllowOriginFunc = func(origin string) bool {
             return true
         }
@@ -139,6 +144,35 @@ func SetupRoutes(
 			"status":  "success",
 			"message": "Back Music API",
 			"version": "1.0.0",
+		})
+	})
+
+	// Debug endpoint untuk cek routes
+	router.GET("/api/debug/routes", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status": "success",
+			"message": "API routes working",
+			"endpoints": gin.H{
+				"auth": gin.H{
+					"register": "POST /api/auth/register",
+					"login":    "POST /api/auth/login",
+					"me":       "GET /api/auth/me (protected)",
+				},
+				"songs": gin.H{
+					"list":   "GET /api/songs",
+					"search": "GET /api/songs/search",
+				},
+			},
+		})
+	})
+
+	// Test POST endpoint
+	router.POST("/api/debug/test-post", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status": "success",
+			"message": "POST endpoint working",
+			"content_type": c.GetHeader("Content-Type"),
+			"method": c.Request.Method,
 		})
 	})
 

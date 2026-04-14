@@ -78,6 +78,59 @@ Saat pertama kali app dijalankan di mode development, sistem otomatis akan:
   - **Password**: `admin123`
   - ⚠️ **GANTI PASSWORD INI DI PRODUCTION!**
 
+## Troubleshooting
+
+### ❌ POST /api/auth/register returns 404 di Production/Ngrok
+
+**Masalah**: Bio POST requests (register, login) return 404 tapi GET /health works fine.
+
+**Penyebab Umum**:
+
+1. **CORS Preflight Failed**: Browser kirim OPTIONS request terlebih dahulu. Jika gagal, browser tidak lanjutkan POST
+2. **Ngrok Configuration**: Ngrok URL tidak di-config di CORS_ORIGIN
+3. **Content-Type Header**: Missing Content-Type header bisa menyebabkan CORS rejection
+
+**Solusi**:
+
+**Untuk Development (Ngrok Testing)**:
+
+```bash
+# Set environment ke development (CORS allow semua)
+ENV=development
+
+# Atau set specific ngrok URL (otomatis detect ngrok domain)
+ENV=production
+```
+
+**Untuk Production (Vercel/Frontend Tertentu)**:
+
+```bash
+ENV=production
+CORS_ORIGIN=https://your-frontend.vercel.app
+```
+
+**Testing dengan cURL**:
+
+```bash
+# Kasi Content-Type header
+curl -X POST https://your-ngrok-url.ngrok-free.dev/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"test","email":"test@test.com","password":"password123"}'
+
+# Atau test OPTIONS preflight
+curl -X OPTIONS https://your-ngrok-url.ngrok-free.dev/api/auth/register \
+  -H "Origin: https://your-frontend.com" \
+  -H "Access-Control-Request-Method: POST" \
+  -v
+```
+
+**Debug Endpoint** (untuk check routes):
+
+```bash
+GET /api/debug/routes  # List semua endpoints
+POST /api/debug/test-post  # Test POST endpoint
+```
+
 **📝 Demo Users juga dibuat otomatis**:
 
 - `demo1@musicapp.local` / `demo123`
@@ -168,4 +221,45 @@ database.SeedInitialData()
 
 ## Deployment
 
-Untuk production, set environment variables di Railway/Supabase sesuai dengan database yang disediakan.
+### Railway/Vercel Deployment
+
+1. Set environment variables di Railway:
+
+```ini
+ENV=production
+PORT=3000
+DB_HOST=<railway-db-host>
+DB_PORT=5432
+DB_USER=<railway-user>
+DB_PASSWORD=<railway-password>
+DB_NAME=<railway-db-name>
+DB_SSLMODE=require
+JWT_SECRET=your-secret-here
+CORS_ORIGIN=https://your-frontend.vercel.app
+```
+
+2. Untuk Ngrok Testing di Production:
+
+```ini
+ENV=production
+# Biarkan CORS_ORIGIN kosong = auto-detect ngrok domains
+```
+
+### Ngrok Setup untuk Testing Production
+
+```bash
+# Start ngrok tunnel
+ngrok http 8080
+
+# Copy https://xxxxx-free.ngrok-free.dev
+# Gunakan URL ini untuk testing
+
+# Frontend harus hit endpoint ini:
+# https://xxxxx-free.ngrok-free.dev/api/auth/login
+```
+
+**⚠️ PENTING**:
+
+- Request harus include `Content-Type: application/json` header
+- CORS preflight (OPTIONS) harus berhasil sebelum POST
+- Jika masih 404, cek log dengan `/api/debug/routes`
